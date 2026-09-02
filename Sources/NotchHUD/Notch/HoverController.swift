@@ -19,13 +19,20 @@ final class HoverController: NSObject {
     private var enterDelivered = false
     private var enterTask: Task<Void, Never>?
     private var exitTask: Task<Void, Never>?
+    private var pollTask: Task<Void, Never>?
     private var lastGlobalHitTestTime: TimeInterval = 0
     private var isPinned = false
 
     // Grace period after the pointer leaves before collapsing. Short enough that the
     // panel gets out of the way immediately, long enough to survive the pointer
     // clipping a corner while travelling between the peek and the expanded panel.
-    private static let exitGraceMilliseconds = 90
+    private static let exitGraceMilliseconds = 35
+
+    // While the panel is up, poll the pointer at roughly display rate. The global
+    // mouseMoved monitor cannot be relied on for the LAST position: it is throttled,
+    // and a flick that ends in stillness emits no further events, so a dropped final
+    // event would leave the panel expanded until the pointer moved again.
+    private static let pollIntervalMilliseconds = 8
 
     init(delegate: HoverControllerDelegate) {
         self.delegate = delegate
@@ -82,6 +89,7 @@ final class HoverController: NSObject {
         enterDelivered = false
         enterTask?.cancel()
         exitTask?.cancel()
+        stopPolling()
         trackingPanel?.orderOut(nil)
     }
 
@@ -100,9 +108,29 @@ final class HoverController: NSObject {
 
     private func handleGlobalMouseMove(at point: NSPoint) {
         let now = ProcessInfo.processInfo.systemUptime
-        guard now - lastGlobalHitTestTime >= (1.0 / 30.0) else { return }
+        guard now - lastGlobalHitTestTime >= (1.0 / 120.0) else { return }
         lastGlobalHitTestTime = now
         updatePointerState(at: point)
+    }
+
+    private func startPolling() {
+        pollTask?.cancel()
+        pollTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .milliseconds(Self.pollIntervalMilliseconds))
+                } catch {
+                    return
+                }
+                guard let self, self.enterDelivered else { return }
+                self.updatePointerState(at: NSEvent.mouseLocation)
+            }
+        }
+    }
+
+    private func stopPolling() {
+        pollTask?.cancel()
+        pollTask = nil
     }
 
     private func updatePointerState(at point: NSPoint) {
@@ -132,6 +160,7 @@ final class HoverController: NSObject {
                 }
                 guard let self, self.pointerIsInside, !self.enterDelivered else { return }
                 self.enterDelivered = true
+                self.startPolling()
                 HoverDiag.log("ENTER delivered -> expand()")
                 self.delegate?.hoverControllerDidEnter(self)
             }
@@ -148,6 +177,7 @@ final class HoverController: NSObject {
                 }
                 guard let self, !self.pointerIsInside, self.enterDelivered else { return }
                 self.enterDelivered = false
+                self.stopPolling()
                 HoverDiag.log("EXIT delivered -> collapse()")
                 self.delegate?.hoverControllerDidExit(self)
             }

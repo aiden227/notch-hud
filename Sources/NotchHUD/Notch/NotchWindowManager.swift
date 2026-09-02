@@ -15,7 +15,7 @@ final class NotchWindowManager {
 
     // Opening keeps the style default (snappy 0.4) so expanding still feels deliberate.
     // Collapsing is deliberately faster: once the pointer is gone the panel is in the way.
-    private static let collapseAnimation: Animation = .snappy(duration: 0.18)
+    private static let collapseAnimation: Animation = .snappy(duration: 0.12)
 
     private let environment: AppEnvironment
     private let store: SessionStore
