@@ -28,6 +28,8 @@ final class NotchWindowManager {
     private var notchedHUD: NotchedHUD?
     private var floatingPeek: FloatingPeek?
     private var interactivePanel: InteractiveNotchPanel?
+    private let reveal = HUDRevealState()
+    private var hideTask: Task<Void, Never>?
     private var panelHostingView: NSHostingView<NotchPanelView>?
     private var transitionTask: Task<Void, Never>?
     private var watchdogTask: Task<Void, Never>?
@@ -192,7 +194,13 @@ final class NotchWindowManager {
         expansionReason = nil
         watchdogTask?.cancel()
         watchdogTask = nil
-        interactivePanel?.orderOut(nil)
+        reveal.isRevealed = false
+        hideTask?.cancel()
+        hideTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(NotchPanelMetrics.transitionDuration))
+            guard let self, !self.isExpanded else { return }
+            self.interactivePanel?.orderOut(nil)
+        }
 
         transitionGeneration += 1
         let generation = transitionGeneration
@@ -275,6 +283,14 @@ final class NotchWindowManager {
         let pendingStore = pendingStore
         let focusDispatcher = focusDispatcher
         let decisionWriter = decisionWriter
+        let compactWidth = selectedScreen.map {
+            NotchGeometry.notchRect(
+                auxLeftMaxX: $0.auxiliaryTopLeftArea?.maxX,
+                auxRightMinX: $0.auxiliaryTopRightArea?.minX,
+                frameMaxY: $0.frame.maxY,
+                safeTop: $0.safeAreaInsets.top
+            )?.width
+        } ?? nil
         let rootView = NotchPanelView(
             store: store,
             pendingStore: pendingStore,
@@ -285,7 +301,9 @@ final class NotchWindowManager {
             },
             onSizeChange: { [weak self] size in
                 self?.updateRenderedPanelSize(size)
-            }
+            },
+            reveal: reveal,
+            compactWidth: compactWidth ?? 220
         )
         let hostingView = FirstMouseHostingView(rootView: rootView)
         hostingView.autoresizingMask = [.width, .height]
@@ -342,7 +360,15 @@ final class NotchWindowManager {
             return
         }
         positionInteractivePanel()
+        hideTask?.cancel()
+        hideTask = nil
         panel.makeKeyAndOrderFront(nil)
+        // Next runloop turn: the mask must render at compactWidth once before the
+        // change to full width can animate rather than snap.
+        Task { @MainActor [weak self] in
+            guard let self, self.isExpanded else { return }
+            self.reveal.isRevealed = true
+        }
     }
 
     private func updateRenderedPanelSize(_ size: CGSize) {
@@ -385,6 +411,11 @@ final class NotchWindowManager {
     }
 
     private func removeInteractivePanel() {
+        // Reset so a rebuilt panel (screen change, re-pin) unfurls again rather
+        // than appearing already at full width.
+        hideTask?.cancel()
+        hideTask = nil
+        reveal.isRevealed = false
         interactivePanel?.onEscape = nil
         interactivePanel?.orderOut(nil)
         interactivePanel?.close()

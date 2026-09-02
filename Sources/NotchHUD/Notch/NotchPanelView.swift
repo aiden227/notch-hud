@@ -8,6 +8,9 @@ struct NotchPanelView: View {
     let decisionWriter: ApprovalDecisionWriter
     let onApprovalDismiss: @MainActor (String) -> Void
     let onSizeChange: @MainActor (CGSize) -> Void
+    let reveal: HUDRevealState
+    /// Width of the collapsed notch band — where the reveal starts from.
+    let compactWidth: CGFloat
 
     @State private var feedback: [String: SessionRowFeedback] = [:]
     @State private var sessionListHeight: CGFloat?
@@ -92,6 +95,15 @@ struct NotchPanelView: View {
         // step across the seam.
         .background(Color.black)
         .clipShape(panelShape)
+        .mask {
+            // Width-only reveal, matched to the band's animation. The inner frame
+            // is what animates; the outer keeps the layout size fixed at full
+            // width so nothing below it shifts.
+            Color.black
+                .frame(width: reveal.isRevealed ? NotchPanelMetrics.width : compactWidth)
+                .frame(width: NotchPanelMetrics.width)
+                .animation(NotchPanelMetrics.transitionAnimation, value: reveal.isRevealed)
+        }
         .background {
             GeometryReader { proxy in
                 Color.clear

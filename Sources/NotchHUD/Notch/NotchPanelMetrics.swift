@@ -18,12 +18,11 @@ enum NotchPanelMetrics {
     /// two curves out of the seam and give the join away.
     static let expandedBottomCornerRadius: CGFloat = 0
 
-    /// The interactive panel is an NSPanel shown with `orderFront` — it has no
-    /// appearance animation and cannot easily be given one without the SwiftUI
-    /// content reflowing mid-flight. So the notch band is driven at the same
-    /// rate: near-instant. A non-zero duration is used because SwiftUI treats a
-    /// zero-duration animation as "no animation" and falls back to the default.
-    static let transitionAnimation: Animation = .linear(duration: 0.01)
+    /// One duration for both halves of the surface. The band is animated by
+    /// DynamicNotchKit; the panel is an NSPanel with no appearance animation of
+    /// its own, so its CONTENT is masked to a width driven by the same curve.
+    static let transitionDuration: TimeInterval = 0.2
+    static let transitionAnimation: Animation = .snappy(duration: transitionDuration)
 
     /// The panel is pulled up by a hair so it overlaps the band instead of merely
     /// abutting it. Both surfaces are opaque black, so the overlap is invisible,
@@ -47,4 +46,16 @@ struct NotchExpandedSpacer: View {
         Color.clear
             .frame(width: NotchPanelMetrics.expandedContentWidth, height: 0)
     }
+}
+
+
+/// Drives the panel's reveal so it unfurls in step with the notch band.
+///
+/// The panel window is always full size; only the mask width animates, so the
+/// SwiftUI content never reflows mid-flight (a window-resize animation would
+/// rewrap every row of text as it grew).
+@MainActor
+@Observable
+final class HUDRevealState {
+    var isRevealed = false
 }
