@@ -22,11 +22,19 @@ enum NotchPanelMetrics {
     /// DynamicNotchKit; the panel is an NSPanel with no appearance animation of
     /// its own, so its CONTENT is masked to a width driven by the same curve.
     /// Both are critically damped springs — see NotchDesign.
-    static let openDuration: TimeInterval = 0.05
     static let openAnimation: Animation = NotchDesign.openSpring
 
     /// Closing mirrors the opening path rather than hard-cutting.
     static let closeAnimation: Animation = NotchDesign.closeSpring
+
+    /// How long to keep the panel window on screen after asking it to close.
+    ///
+    /// A spring has no duration — its settle time emerges from the parameters —
+    /// so this is the practical window for the critically damped spring above to
+    /// finish. Without it the window is ordered out on the same frame the
+    /// animation starts, and the close plays on the band only while the panel
+    /// simply blinks out: the two halves visibly disagree.
+    static let closeSettle: TimeInterval = 0.14
 
     /// The panel is pulled up by a hair so it overlaps the band instead of merely
     /// abutting it. Both surfaces are opaque black, so the overlap is invisible,

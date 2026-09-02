@@ -279,8 +279,13 @@ final class NotchWindowManager {
         watchdogTask = nil
         reveal.isRevealed = false
         hideTask?.cancel()
-        hideTask = nil
-        interactivePanel?.orderOut(nil)
+        // Let the closing spring actually render before the window goes away, so
+        // panel and band travel together. Re-expanding cancels this.
+        hideTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(NotchPanelMetrics.closeSettle))
+            guard let self, !self.isExpanded else { return }
+            self.interactivePanel?.orderOut(nil)
+        }
 
         transitionGeneration += 1
         let generation = transitionGeneration
