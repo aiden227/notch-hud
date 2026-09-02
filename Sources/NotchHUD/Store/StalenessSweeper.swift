@@ -81,15 +81,6 @@ final class StalenessSweeper {
     }
 
     private func removeSpoolFile(for sessionID: String) {
-        guard !sessionID.isEmpty,
-              !sessionID.contains("/"),
-              sessionID != ".",
-              sessionID != ".."
-        else {
-            return
-        }
-
-        let fileURL = spoolURL.appendingPathComponent("\(sessionID).json", isDirectory: false)
-        try? fileManager.removeItem(at: fileURL)
+        SpoolFile.remove(sessionID: sessionID, in: spoolURL, fileManager: fileManager)
     }
 }

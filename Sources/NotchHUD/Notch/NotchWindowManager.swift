@@ -38,6 +38,7 @@ final class NotchWindowManager {
     /// `containsExpandedContent` only covers the panel, and the band alone is a
     /// perfectly good place to be reading from.
     private var pointerIsOverHUD = false
+    private var activationObserver: (any NSObjectProtocol)?
     private var hideTask: Task<Void, Never>?
     private var panelHostingView: NSHostingView<NotchPanelView>?
     private var transitionTask: Task<Void, Never>?
@@ -73,6 +74,7 @@ final class NotchWindowManager {
         let hoverController = HoverController(delegate: self)
         self.hoverController = hoverController
         installInteractionMonitors()
+        installActivationObserver()
         repinToBuiltInScreen()
     }
 
@@ -81,6 +83,7 @@ final class NotchWindowManager {
         transitionTask?.cancel()
         watchdogTask?.cancel()
         removeInteractionMonitors()
+        removeActivationObserver()
         removeInteractivePanel()
     }
 
@@ -120,6 +123,9 @@ final class NotchWindowManager {
             } else {
                 self.pendingAutoExpandActive = false
             }
+            // Catch up on anything that already needed attention while the HUD
+            // was still being built.
+            self.sessionsDidChange()
         }
     }
 
@@ -210,6 +216,14 @@ final class NotchWindowManager {
         )
         guard !isExpanded, let screen = selectedScreen else { return }
         guard notchedHUD != nil || floatingPeek != nil else { return }
+        // The panel is installed after the notch during boot. Expanding in that
+        // window would set isExpanded with nothing to show, and the installer's
+        // own `!isExpanded` guard would then skip installing the panel and
+        // pinning hover for good. Boot re-checks attention once both exist.
+        guard interactivePanel != nil else {
+            HoverDiag.log("expand(reason: \(reason.rawValue)) deferred: panel not installed yet")
+            return
+        }
 
         isExpanded = true
         expansionReason = reason
@@ -525,6 +539,54 @@ final class NotchWindowManager {
             }
             return event
         }
+    }
+
+    /// Bringing an agent's host app to the front IS reading its results, so the
+    /// finished rows for that app have done their job and are cleared.
+    /// `needs_me` is deliberately left alone: activating the app does not answer
+    /// the question the agent is blocked on.
+    private func installActivationObserver() {
+        guard activationObserver == nil else { return }
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard
+                let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                    as? NSRunningApplication,
+                let bundleID = application.bundleIdentifier
+            else {
+                return
+            }
+            MainActor.assumeIsolated {
+                self?.clearFinishedSessions(hostedBy: bundleID)
+            }
+        }
+    }
+
+    private func removeActivationObserver() {
+        if let activationObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
+        }
+        activationObserver = nil
+    }
+
+    private func clearFinishedSessions(hostedBy bundleID: String) {
+        let sessions = store.sessionsWithoutPendingOverlay
+        let finishedIDs = Set(
+            sessions
+                .filter { $0.displayStatus == .done && $0.terminal?.appBundleId == bundleID }
+                .map(\.id)
+        )
+        guard !finishedIDs.isEmpty else { return }
+
+        HoverDiag.log("activation of \(bundleID) cleared \(finishedIDs.count) finished session(s)")
+        for id in finishedIDs {
+            SpoolFile.remove(sessionID: id, in: environment.spoolURL)
+            acknowledgedSeq[id] = nil
+        }
+        store.apply(sessions.filter { !finishedIDs.contains($0.id) })
     }
 
     private func removeInteractionMonitors() {
