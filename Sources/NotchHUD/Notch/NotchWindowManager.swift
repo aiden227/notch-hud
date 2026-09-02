@@ -13,9 +13,10 @@ final class NotchWindowManager {
     private typealias NotchedHUD = DynamicNotch<NotchExpandedSpacer, NotchPeekView, NotchPeekTrailingView>
     private typealias FloatingPeek = DynamicNotch<NotchFloatingPeekView, EmptyView, EmptyView>
 
-    // Opening keeps the style default (snappy 0.4) so expanding still feels deliberate.
-    // Collapsing is deliberately faster: once the pointer is gone the panel is in the way.
-    private static let collapseAnimation: Animation = .snappy(duration: 0.12)
+    // Band and panel must change state at the same rate or the HUD visibly comes
+    // apart: the band was animating over 0.4s while the panel appeared instantly.
+    // See NotchPanelMetrics.transitionAnimation.
+    private static let transitionAnimation = NotchPanelMetrics.transitionAnimation
 
     private let environment: AppEnvironment
     private let store: SessionStore
@@ -160,7 +161,7 @@ final class NotchWindowManager {
             configurePassThroughWindow(notchedHUD.windowController?.window)
             transitionTask = Task { [weak self, weak notchedHUD] in
                 guard let self, let notchedHUD else { return }
-                notchedHUD.transitionConfiguration.conversionAnimation = nil
+                notchedHUD.transitionConfiguration.conversionAnimation = Self.transitionAnimation
                 await notchedHUD.expand(on: screen)
                 guard self.transitionGeneration == generation, self.isExpanded else { return }
                 self.configurePassThroughWindow(notchedHUD.windowController?.window)
@@ -202,7 +203,7 @@ final class NotchWindowManager {
             configurePassThroughWindow(notchedHUD.windowController?.window)
             transitionTask = Task { [weak self, weak notchedHUD] in
                 guard let self, let notchedHUD else { return }
-                notchedHUD.transitionConfiguration.conversionAnimation = Self.collapseAnimation
+                notchedHUD.transitionConfiguration.conversionAnimation = Self.transitionAnimation
                 await notchedHUD.compact(on: screen)
                 guard self.transitionGeneration == generation, !self.isExpanded else { return }
                 self.configurePassThroughWindow(notchedHUD.windowController?.window)
@@ -299,7 +300,10 @@ final class NotchWindowManager {
         panel.isReleasedWhenClosed = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.hasShadow = true
+        // No shadow: the notch band above casts none, so a shadow on the panel
+        // alone draws a rim along the seam and gives away that this is two
+        // windows rather than one surface.
+        panel.hasShadow = false
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = false
         panel.ignoresMouseEvents = false

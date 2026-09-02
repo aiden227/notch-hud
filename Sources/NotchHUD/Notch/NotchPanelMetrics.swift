@@ -18,6 +18,13 @@ enum NotchPanelMetrics {
     /// two curves out of the seam and give the join away.
     static let expandedBottomCornerRadius: CGFloat = 0
 
+    /// The interactive panel is an NSPanel shown with `orderFront` — it has no
+    /// appearance animation and cannot easily be given one without the SwiftUI
+    /// content reflowing mid-flight. So the notch band is driven at the same
+    /// rate: near-instant. A non-zero duration is used because SwiftUI treats a
+    /// zero-duration animation as "no animation" and falls back to the default.
+    static let transitionAnimation: Animation = .linear(duration: 0.01)
+
     /// The panel is pulled up by a hair so it overlaps the band instead of merely
     /// abutting it. Both surfaces are opaque black, so the overlap is invisible,
     /// but it guarantees no desktop shows through on a fractional boundary.
