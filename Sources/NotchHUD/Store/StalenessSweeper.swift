@@ -55,9 +55,16 @@ final class StalenessSweeper {
                 didChangeStore = true
             }
 
-            let isTtylessAndFinished = sessions[index].terminal?.tty == nil
+            // Purge finished sessions we could never take the user to anyway —
+            // launchd jobs and other background agents. An editor-hosted session
+            // has no tty either, but IS focusable via its app's URI handler, so
+            // dropping it on sight would delete the "done" row before it could be
+            // seen. Those age out through dropSeconds like everything else.
+            let isUnreachable = sessions[index].terminal?.tty == nil
+                && sessions[index].terminal?.appBundleId == nil
+            let isBackgroundAndFinished = isUnreachable
                 && (sessions[index].status == .done || sessions[index].status == .unknown)
-            if age > dropSeconds || isTtylessAndFinished {
+            if age > dropSeconds || isBackgroundAndFinished {
                 removeSpoolFile(for: sessions[index].id)
                 deletedSessionIDs.insert(sessions[index].id)
                 didChangeStore = true

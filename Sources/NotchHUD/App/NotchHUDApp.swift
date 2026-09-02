@@ -56,6 +56,9 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         self.spoolWatcher = spoolWatcher
         self.pendingWatcher = pendingWatcher
         self.stalenessSweeper = stalenessSweeper
+        sessionStore.onSessionsChanged = { [weak windowManager] in
+            windowManager?.sessionsDidChange()
+        }
         self.windowManager = windowManager
 
         spoolWatcher.start()

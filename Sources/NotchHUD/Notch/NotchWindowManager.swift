@@ -7,6 +7,7 @@ final class NotchWindowManager {
     enum ExpansionReason: String {
         case hover
         case pending
+        case attention
         case manual
     }
 
@@ -28,6 +29,15 @@ final class NotchWindowManager {
     private var floatingPeek: FloatingPeek?
     private var interactivePanel: InteractiveNotchPanel?
     private let reveal = HUDRevealState()
+    /// Highest `seq` per session the user has actually looked at. A session
+    /// needing attention re-alerts only when the agent emits something newer,
+    /// so acknowledging is not undone by unrelated rescans.
+    private var acknowledgedSeq: [String: Int] = [:]
+    private var attentionAutoExpandActive = false
+    /// Whether the pointer is anywhere over the HUD — the band OR the panel.
+    /// `containsExpandedContent` only covers the panel, and the band alone is a
+    /// perfectly good place to be reading from.
+    private var pointerIsOverHUD = false
     private var hideTask: Task<Void, Never>?
     private var panelHostingView: NSHostingView<NotchPanelView>?
     private var transitionTask: Task<Void, Never>?
@@ -141,6 +151,58 @@ final class NotchWindowManager {
         }
     }
 
+    /// Sessions that have finished or are blocked on the user and have not been
+    /// viewed since. These hold the HUD open.
+    private var unacknowledgedAttention: [Session] {
+        store.sessions.filter { session in
+            guard session.displayStatus == .needsMe || session.displayStatus == .done else {
+                return false
+            }
+            return session.seq > (acknowledgedSeq[session.id] ?? Int.min)
+        }
+    }
+
+    private var hasUnacknowledgedAttention: Bool {
+        !unacknowledgedAttention.isEmpty
+    }
+
+    /// Called when the spool changes: open the HUD for anything newly needing
+    /// attention, and let it close again once everything has been seen.
+    func sessionsDidChange() {
+        // Drop bookkeeping for sessions that have left the spool entirely.
+        let liveIDs = Set(store.sessions.map(\.id))
+        acknowledgedSeq = acknowledgedSeq.filter { liveIDs.contains($0.key) }
+
+        if hasUnacknowledgedAttention {
+            // Already looking at the HUD when it arrived — that counts as seen,
+            // otherwise the HUD would stick open until the pointer left and
+            // came back.
+            if isExpanded,
+               pointerIsOverHUD || containsExpandedContent(at: NSEvent.mouseLocation) {
+                acknowledgeAttention()
+                return
+            }
+            attentionAutoExpandActive = true
+            expand(reason: .attention)
+            return
+        }
+
+        guard attentionAutoExpandActive else { return }
+        attentionAutoExpandActive = false
+        if !containsExpandedContent(at: NSEvent.mouseLocation) {
+            collapse(reason: .attention)
+        }
+    }
+
+    /// The user has looked at the HUD, so everything currently showing counts as
+    /// seen and no longer holds the panel open.
+    private func acknowledgeAttention() {
+        for session in unacknowledgedAttention {
+            acknowledgedSeq[session.id] = session.seq
+        }
+        attentionAutoExpandActive = false
+    }
+
     func expand(reason: ExpansionReason) {
         HoverDiag.log(
             "expand(reason: \(reason.rawValue)) isExpanded=\(isExpanded) "
@@ -185,6 +247,13 @@ final class NotchWindowManager {
     func collapse(reason: ExpansionReason) {
         if reason == .hover, pendingAutoExpandActive, pendingStore.hasPending {
             HoverDiag.log("collapse(reason: hover) ignored while a pending card is showing")
+            return
+        }
+        if reason == .hover, hasUnacknowledgedAttention {
+            HoverDiag.log(
+                "collapse(reason: hover) ignored: "
+                    + "\(unacknowledgedAttention.count) session(s) not yet viewed"
+            )
             return
         }
         guard isExpanded else { return }
@@ -490,6 +559,9 @@ final class NotchWindowManager {
                 let now = ProcessInfo.processInfo.systemUptime
                 if self.containsExpandedContent(at: NSEvent.mouseLocation) {
                     lastPointerInsideTime = now
+                } else if self.hasUnacknowledgedAttention {
+                    // Held open on purpose until viewed; not a stuck panel.
+                    lastPointerInsideTime = now
                 } else if now - lastPointerInsideTime >= 120 {
                     NSLog(
                         "NotchHUD watchdog force-collapsed a panel left expanded "
@@ -531,10 +603,13 @@ final class NotchWindowManager {
 
 extension NotchWindowManager: HoverControllerDelegate {
     func hoverControllerDidEnter(_ controller: HoverController) {
+        pointerIsOverHUD = true
+        acknowledgeAttention()
         expand(reason: .hover)
     }
 
     func hoverControllerDidExit(_ controller: HoverController) {
+        pointerIsOverHUD = false
         collapse(reason: .hover)
     }
 

@@ -7,9 +7,16 @@ final class SessionStore {
     private var sourceSessions: [Session] = []
     private var pendingSessionIDs = Set<String>()
 
+    /// Fired after the spool hands over a new set of sessions, so the window
+    /// manager can decide whether anything now needs the user's attention.
+    /// Deliberately NOT fired by `markPendingApprovals`: approvals have their
+    /// own expand/collapse path.
+    var onSessionsChanged: (@MainActor () -> Void)?
+
     func apply(_ sessions: [Session]) {
         sourceSessions = sessions
         rebuildSessions()
+        onSessionsChanged?()
     }
 
     func markPendingApprovals(sessionIDs: Set<String>) {

@@ -18,25 +18,8 @@ struct SessionRowView: View {
         session.terminal?.tty != nil || session.terminal?.appBundleId != nil
     }
 
-    /// What clicking will actually do, so the tooltip does not promise a
-    /// terminal tab when all we can raise is the host application.
     private var focusHint: String {
-        if session.terminal?.tty != nil {
-            return "Raise this session's terminal"
-        }
-        if let terminal = session.terminal,
-           terminal.appUrlScheme != nil,
-           terminal.claudeEntrypoint == "claude-vscode" {
-            let app = terminal.appName ?? "the editor"
-            return "Jump to this session's tab in \(app)"
-        }
-        if let app = session.terminal?.appName {
-            return "Raise \(app)"
-        }
-        if session.terminal?.appBundleId != nil {
-            return "Raise the host application"
-        }
-        return "Background session"
+        canFocus ? "Jump to this agent" : "Background session"
     }
 
     var body: some View {
