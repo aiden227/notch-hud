@@ -21,7 +21,7 @@ enum NotchPanelMetrics {
     /// Opening: both halves unfurl together. The band is animated by
     /// DynamicNotchKit; the panel is an NSPanel with no appearance animation of
     /// its own, so its CONTENT is masked to a width driven by the same curve.
-    static let openDuration: TimeInterval = 0.2
+    static let openDuration: TimeInterval = 0.05
     static let openAnimation: Animation = .snappy(duration: openDuration)
 
     /// Closing: instant. Once the pointer is gone the HUD is in the way, so there

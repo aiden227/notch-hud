@@ -24,6 +24,12 @@ struct SessionRowView: View {
         if session.terminal?.tty != nil {
             return "Raise this session's terminal"
         }
+        if let terminal = session.terminal,
+           terminal.appUrlScheme != nil,
+           terminal.claudeEntrypoint == "claude-vscode" {
+            let app = terminal.appName ?? "the editor"
+            return "Jump to this session's tab in \(app)"
+        }
         if let app = session.terminal?.appName {
             return "Raise \(app)"
         }

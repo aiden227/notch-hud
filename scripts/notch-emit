@@ -167,12 +167,18 @@ find_app_bundle() {
 app_bundle_path=$(find_app_bundle)
 app_bundle_id=
 app_name=
+app_url_scheme=
 if [ -n "$app_bundle_path" ] && [ -f "$app_bundle_path/Contents/Info.plist" ]; then
     app_bundle_id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" \
         "$app_bundle_path/Contents/Info.plist" 2>/dev/null)
     app_name=$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" \
         "$app_bundle_path/Contents/Info.plist" 2>/dev/null)
     [ -n "$app_name" ] || app_name=$(basename "$app_bundle_path" .app)
+    # First registered URL scheme, used to deep-link straight to the session's
+    # tab when the host is an editor (see EditorSessionStrategy).
+    app_url_scheme=$(/usr/libexec/PlistBuddy \
+        -c "Print :CFBundleURLTypes:0:CFBundleURLSchemes:0" \
+        "$app_bundle_path/Contents/Info.plist" 2>/dev/null)
 fi
 
 updated=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
@@ -206,6 +212,8 @@ if jq -n \
     --arg window_id "${WINDOWID:-}" \
     --arg app_bundle_id "$app_bundle_id" \
     --arg app_name "$app_name" \
+    --arg app_url_scheme "$app_url_scheme" \
+    --arg claude_entrypoint "${CLAUDE_CODE_ENTRYPOINT:-}" \
     --argjson pid "$pid_json" \
     --argjson seq "$seq" \
     --argjson detail_set "$detail_set" \
@@ -232,7 +240,9 @@ if jq -n \
             kittyWindowId: (if $kitty_window_id == "" then null else $kitty_window_id end),
             windowId: (if $window_id == "" then null else $window_id end),
             appBundleId: (if $app_bundle_id == "" then null else $app_bundle_id end),
-            appName: (if $app_name == "" then null else $app_name end)
+            appName: (if $app_name == "" then null else $app_name end),
+            appUrlScheme: (if $app_url_scheme == "" then null else $app_url_scheme end),
+            claudeEntrypoint: (if $claude_entrypoint == "" then null else $claude_entrypoint end)
         } | with_entries(select(.value != null)))),
         source: "notch-emit"
     }

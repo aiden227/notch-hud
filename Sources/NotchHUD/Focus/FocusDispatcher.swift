@@ -9,7 +9,9 @@ final class FocusDispatcher {
         ITerm2Strategy(),
         WezTermStrategy(),
         KittyStrategy(),
-        // Last: only handles what the tty-based strategies decline.
+        // Editor-hosted sessions: deep-link to the exact tab when we can,
+        // otherwise fall back to merely raising the host application.
+        EditorSessionStrategy(),
         ApplicationStrategy()
     ]) {
         self.strategies = strategies
@@ -24,7 +26,7 @@ final class FocusDispatcher {
 
         do {
             try await Task.detached {
-                try strategy.focus(identity)
+                try strategy.focus(session)
             }.value
             return .success(())
         } catch let error as FocusError {
