@@ -29,7 +29,7 @@ struct SessionRowView: View {
             } label: {
                 cardContent
             }
-            .buttonStyle(.plain)
+            .buttonStyle(NotchRowButtonStyle(isEnabled: canFocus))
             .disabled(!canFocus)
             .help(focusHint)
 
@@ -37,6 +37,7 @@ struct SessionRowView: View {
                 Button(action: onGrantAccess) {
                     Label("Grant Automation access", systemImage: "gearshape")
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .tracking(NotchDesign.tracking(forSize: 10))
                         .foregroundStyle(DisplayStatus.needsMe.color)
                 }
                 .buttonStyle(.plain)
@@ -44,7 +45,8 @@ struct SessionRowView: View {
             } else if feedback == .notFound {
                 Text("Terminal window not found")
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.45))
+                    .tracking(NotchDesign.tracking(forSize: 10))
+                    .foregroundStyle(NotchDesign.textQuaternary)
             }
         }
         .opacity(canFocus ? 1 : 0.55)
@@ -64,7 +66,8 @@ struct SessionRowView: View {
                    !prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Text("You: \(prompt)")
                         .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .tracking(NotchDesign.tracking(forSize: 11))
+                        .foregroundStyle(NotchDesign.textTertiary)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -78,7 +81,7 @@ struct SessionRowView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white.opacity(isHovering && canFocus ? 0.08 : 0.04))
+        .background(isHovering && canFocus ? NotchDesign.rowFillHover : NotchDesign.rowFill)
         .clipShape(.rect(cornerRadius: 12))
         .contentShape(.rect)
         .onHover { hovering in
@@ -89,7 +92,8 @@ struct SessionRowView: View {
     private var titleLine: Text {
         let project = Text(session.project)
             .font(.system(size: 13, weight: .bold, design: .monospaced))
-            .foregroundColor(.white)
+            .tracking(NotchDesign.tracking(forSize: 13))
+            .foregroundColor(NotchDesign.textPrimary)
 
         guard let task = session.task, !task.isEmpty else {
             return project
@@ -98,10 +102,12 @@ struct SessionRowView: View {
         return project
             + Text(" · ")
                 .font(.system(size: 13, design: .monospaced))
-                .foregroundColor(.white.opacity(0.28))
+                .tracking(NotchDesign.tracking(forSize: 13))
+                .foregroundColor(NotchDesign.textQuaternary)
             + Text(task)
                 .font(.system(size: 13, design: .monospaced))
-                .foregroundColor(.white.opacity(0.58))
+                .tracking(NotchDesign.tracking(forSize: 13))
+                .foregroundColor(NotchDesign.textTertiary)
     }
 
     @ViewBuilder
@@ -130,7 +136,8 @@ struct SessionRowView: View {
             .foregroundColor(Color(red: 110 / 255, green: 180 / 255, blue: 255 / 255))
             + Text(detail)
                 .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.white.opacity(0.5))
+                .tracking(NotchDesign.tracking(forSize: 11))
+                .foregroundColor(NotchDesign.textTertiary)
     }
 
     private var trailingMetadata: some View {
@@ -160,9 +167,10 @@ struct SessionRowView: View {
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    private func chip(_ label: String, tint: Color = .white.opacity(0.56)) -> some View {
+    private func chip(_ label: String, tint: Color = NotchDesign.textTertiary) -> some View {
         Text(label)
             .font(.system(size: 9, weight: .medium, design: .monospaced))
+            .tracking(NotchDesign.tracking(forSize: 9))
             .foregroundStyle(tint)
             .lineLimit(1)
             .padding(.horizontal, 6)

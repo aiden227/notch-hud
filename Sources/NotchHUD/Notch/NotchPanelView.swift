@@ -12,10 +12,17 @@ struct NotchPanelView: View {
     /// Width of the collapsed notch band — where the reveal starts from.
     let compactWidth: CGFloat
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var feedback: [String: SessionRowFeedback] = [:]
     @State private var sessionListHeight: CGFloat?
 
     private let maximumPanelHeight: CGFloat = 520
+    /// Only true when rows actually run under the chrome. Fading the edges of a
+    /// short, fully visible list would dim the first and last row for nothing.
+    private var listIsScrollable: Bool {
+        (sessionListHeight ?? 0) > maximumSessionListHeight
+    }
+
     private var maximumSessionListHeight: CGFloat {
         pendingStore.hasPending ? 205 : 468
     }
@@ -77,6 +84,32 @@ struct NotchPanelView: View {
                             maximumSessionListHeight
                         )
                     )
+                    // Scroll edge effect rather than a hard divider: content
+                    // dissolves where it meets the chrome instead of being
+                    // sliced by a line. Drawn as a non-interactive overlay, not
+                    // a mask, so it cannot swallow clicks on the edge rows.
+                    .overlay(alignment: .top) {
+                        if listIsScrollable {
+                            LinearGradient(
+                                colors: [NotchDesign.surface, .clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 12)
+                            .allowsHitTesting(false)
+                        }
+                    }
+                    .overlay(alignment: .bottom) {
+                        if listIsScrollable {
+                            LinearGradient(
+                                colors: [.clear, NotchDesign.surface],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 12)
+                            .allowsHitTesting(false)
+                        }
+                    }
                 }
             }
         }
@@ -93,16 +126,22 @@ struct NotchPanelView: View {
         // Pure opaque black to match the notch band above, which DynamicNotchKit
         // fills with plain `.black`. Any tint or translucency here shows up as a
         // step across the seam.
-        .background(Color.black)
+        .background(NotchDesign.surface)
         .clipShape(panelShape)
         .mask {
             // Width-only reveal, matched to the band's animation. The inner frame
             // is what animates; the outer keeps the layout size fixed at full
             // width so nothing below it shifts.
+            //
+            // Reduced motion replaces the travel with a plain cross-fade: the
+            // information still arrives, it just does not sweep across the screen.
             Color.black
-                .frame(width: reveal.isRevealed ? NotchPanelMetrics.width : compactWidth)
+                .frame(
+                    width: reduceMotion
+                        ? NotchPanelMetrics.width
+                        : (reveal.isRevealed ? NotchPanelMetrics.width : compactWidth)
+                )
                 .frame(width: NotchPanelMetrics.width)
-                // Direction-dependent: unfurl on the way in, vanish on the way out.
                 .animation(
                     reveal.isRevealed
                         ? NotchPanelMetrics.openAnimation
@@ -110,6 +149,8 @@ struct NotchPanelView: View {
                     value: reveal.isRevealed
                 )
         }
+        .opacity(reduceMotion ? (reveal.isRevealed ? 1 : 0) : 1)
+        .animation(reduceMotion ? NotchDesign.reducedMotion : nil, value: reveal.isRevealed)
         .background {
             GeometryReader { proxy in
                 Color.clear
@@ -137,10 +178,11 @@ struct NotchPanelView: View {
 
             Image(systemName: "gearshape")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(NotchDesign.textTertiary)
                 .accessibilityLabel("Settings")
         }
         .font(.system(size: 11, weight: .medium, design: .monospaced))
+        .tracking(NotchDesign.tracking(forSize: 11))
     }
 
     private func summaryPart(_ count: Int, _ label: String, color: Color) -> some View {
@@ -149,13 +191,13 @@ struct NotchPanelView: View {
                 .foregroundStyle(color)
                 .monospacedDigit()
             Text(label)
-                .foregroundStyle(.white.opacity(0.58))
+                .foregroundStyle(NotchDesign.textSecondary)
         }
     }
 
     private var summarySeparator: some View {
         Text("·")
-            .foregroundStyle(.white.opacity(0.28))
+            .foregroundStyle(NotchDesign.textQuaternary)
     }
 
     private var emptyState: some View {
@@ -163,7 +205,8 @@ struct NotchPanelView: View {
             AgentSprite(status: .idle, size: 18)
             Text("No active sessions")
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.48))
+                .tracking(NotchDesign.tracking(forSize: 12))
+                .foregroundStyle(NotchDesign.textTertiary)
         }
         .frame(maxWidth: .infinity, minHeight: 64, alignment: .center)
     }

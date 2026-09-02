@@ -21,13 +21,12 @@ enum NotchPanelMetrics {
     /// Opening: both halves unfurl together. The band is animated by
     /// DynamicNotchKit; the panel is an NSPanel with no appearance animation of
     /// its own, so its CONTENT is masked to a width driven by the same curve.
+    /// Both are critically damped springs — see NotchDesign.
     static let openDuration: TimeInterval = 0.05
-    static let openAnimation: Animation = .snappy(duration: openDuration)
+    static let openAnimation: Animation = NotchDesign.openSpring
 
-    /// Closing: instant. Once the pointer is gone the HUD is in the way, so there
-    /// is nothing to watch. A hair above zero because SwiftUI treats a
-    /// zero-duration animation as "no animation" and falls back to the default.
-    static let closeAnimation: Animation = .linear(duration: 0.001)
+    /// Closing mirrors the opening path rather than hard-cutting.
+    static let closeAnimation: Animation = NotchDesign.closeSpring
 
     /// The panel is pulled up by a hair so it overlaps the band instead of merely
     /// abutting it. Both surfaces are opaque black, so the overlap is invisible,
