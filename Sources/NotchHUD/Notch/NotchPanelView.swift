@@ -102,7 +102,13 @@ struct NotchPanelView: View {
             Color.black
                 .frame(width: reveal.isRevealed ? NotchPanelMetrics.width : compactWidth)
                 .frame(width: NotchPanelMetrics.width)
-                .animation(NotchPanelMetrics.transitionAnimation, value: reveal.isRevealed)
+                // Direction-dependent: unfurl on the way in, vanish on the way out.
+                .animation(
+                    reveal.isRevealed
+                        ? NotchPanelMetrics.openAnimation
+                        : NotchPanelMetrics.closeAnimation,
+                    value: reveal.isRevealed
+                )
         }
         .background {
             GeometryReader { proxy in

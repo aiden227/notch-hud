@@ -18,11 +18,16 @@ enum NotchPanelMetrics {
     /// two curves out of the seam and give the join away.
     static let expandedBottomCornerRadius: CGFloat = 0
 
-    /// One duration for both halves of the surface. The band is animated by
+    /// Opening: both halves unfurl together. The band is animated by
     /// DynamicNotchKit; the panel is an NSPanel with no appearance animation of
     /// its own, so its CONTENT is masked to a width driven by the same curve.
-    static let transitionDuration: TimeInterval = 0.2
-    static let transitionAnimation: Animation = .snappy(duration: transitionDuration)
+    static let openDuration: TimeInterval = 0.2
+    static let openAnimation: Animation = .snappy(duration: openDuration)
+
+    /// Closing: instant. Once the pointer is gone the HUD is in the way, so there
+    /// is nothing to watch. A hair above zero because SwiftUI treats a
+    /// zero-duration animation as "no animation" and falls back to the default.
+    static let closeAnimation: Animation = .linear(duration: 0.001)
 
     /// The panel is pulled up by a hair so it overlaps the band instead of merely
     /// abutting it. Both surfaces are opaque black, so the overlap is invisible,

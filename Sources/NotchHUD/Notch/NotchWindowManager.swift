@@ -14,9 +14,8 @@ final class NotchWindowManager {
     private typealias FloatingPeek = DynamicNotch<NotchFloatingPeekView, EmptyView, EmptyView>
 
     // Band and panel must change state at the same rate or the HUD visibly comes
-    // apart: the band was animating over 0.4s while the panel appeared instantly.
-    // See NotchPanelMetrics.transitionAnimation.
-    private static let transitionAnimation = NotchPanelMetrics.transitionAnimation
+    // apart. Opening unfurls over 0.2s; closing is instant.
+    // See NotchPanelMetrics.
 
     private let environment: AppEnvironment
     private let store: SessionStore
@@ -163,7 +162,8 @@ final class NotchWindowManager {
             configurePassThroughWindow(notchedHUD.windowController?.window)
             transitionTask = Task { [weak self, weak notchedHUD] in
                 guard let self, let notchedHUD else { return }
-                notchedHUD.transitionConfiguration.conversionAnimation = Self.transitionAnimation
+                notchedHUD.transitionConfiguration.conversionAnimation =
+                    NotchPanelMetrics.openAnimation
                 await notchedHUD.expand(on: screen)
                 guard self.transitionGeneration == generation, self.isExpanded else { return }
                 self.configurePassThroughWindow(notchedHUD.windowController?.window)
@@ -196,11 +196,8 @@ final class NotchWindowManager {
         watchdogTask = nil
         reveal.isRevealed = false
         hideTask?.cancel()
-        hideTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(NotchPanelMetrics.transitionDuration))
-            guard let self, !self.isExpanded else { return }
-            self.interactivePanel?.orderOut(nil)
-        }
+        hideTask = nil
+        interactivePanel?.orderOut(nil)
 
         transitionGeneration += 1
         let generation = transitionGeneration
@@ -211,7 +208,8 @@ final class NotchWindowManager {
             configurePassThroughWindow(notchedHUD.windowController?.window)
             transitionTask = Task { [weak self, weak notchedHUD] in
                 guard let self, let notchedHUD else { return }
-                notchedHUD.transitionConfiguration.conversionAnimation = Self.transitionAnimation
+                notchedHUD.transitionConfiguration.conversionAnimation =
+                    NotchPanelMetrics.closeAnimation
                 await notchedHUD.compact(on: screen)
                 guard self.transitionGeneration == generation, !self.isExpanded else { return }
                 self.configurePassThroughWindow(notchedHUD.windowController?.window)
