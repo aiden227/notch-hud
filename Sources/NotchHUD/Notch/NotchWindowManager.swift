@@ -136,6 +136,11 @@ final class NotchWindowManager {
         handlePendingTransition(previouslyHadPending: previouslyHadPending)
     }
 
+    /// The user jumped to an agent from its row.
+    func sessionDidReceiveFocus(id: String) {
+        clearFinishedSession(id: id)
+    }
+
     private func approvalDidResolve(sessionID: String) {
         let previouslyHadPending = pendingStore.hasPending
         pendingStore.dismiss(sessionID: sessionID)
@@ -385,6 +390,9 @@ final class NotchWindowManager {
             onApprovalDismiss: { [weak self] sessionID in
                 self?.approvalDidResolve(sessionID: sessionID)
             },
+            onSessionFocused: { [weak self] sessionID in
+                self?.sessionDidReceiveFocus(id: sessionID)
+            },
             onSizeChange: { [weak self] size in
                 self?.updateRenderedPanelSize(size)
             },
@@ -578,15 +586,38 @@ final class NotchWindowManager {
     }
 
     private func clearFinishedSessions(hostedBy bundleID: String) {
+        clearFinished(reason: "activation of \(bundleID)") {
+            $0.terminal?.appBundleId == bundleID
+        }
+    }
+
+    /// Everything finished, regardless of host — used once the user has looked at
+    /// the HUD and moved on. Waiting for an app switch to tidy up is exactly the
+    /// case that leaves finished rows sitting there while the user is already
+    /// working in the app that produced them.
+    private func clearFinishedSessions() {
+        clearFinished(reason: "viewed") { _ in true }
+    }
+
+    /// One finished session, cleared because the user jumped to it. Opening the
+    /// agent is the most direct possible acknowledgement that it has been read.
+    private func clearFinishedSession(id: String) {
+        clearFinished(reason: "jumped to \(id)") { $0.id == id }
+    }
+
+    private func clearFinished(
+        reason: String,
+        matching predicate: (Session) -> Bool
+    ) {
         let sessions = store.sessionsWithoutPendingOverlay
         let finishedIDs = Set(
             sessions
-                .filter { $0.displayStatus == .done && $0.terminal?.appBundleId == bundleID }
+                .filter { $0.displayStatus == .done && predicate($0) }
                 .map(\.id)
         )
         guard !finishedIDs.isEmpty else { return }
 
-        HoverDiag.log("activation of \(bundleID) cleared \(finishedIDs.count) finished session(s)")
+        HoverDiag.log("\(reason) cleared \(finishedIDs.count) finished session(s)")
         for id in finishedIDs {
             SpoolFile.remove(sessionID: id, in: environment.spoolURL)
             acknowledgedSeq[id] = nil
@@ -678,6 +709,10 @@ extension NotchWindowManager: HoverControllerDelegate {
     func hoverControllerDidExit(_ controller: HoverController) {
         pointerIsOverHUD = false
         collapse(reason: .hover)
+        // Deliberately on exit rather than enter: clearing as the pointer
+        // arrives would delete the rows the user came to read, out from under
+        // the cursor, before they could be clicked.
+        clearFinishedSessions()
     }
 
     func hoverController(_ controller: HoverController, containsExpandedPoint point: NSPoint) -> Bool {

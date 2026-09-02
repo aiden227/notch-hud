@@ -7,6 +7,7 @@ struct NotchPanelView: View {
     let focusDispatcher: FocusDispatcher
     let decisionWriter: ApprovalDecisionWriter
     let onApprovalDismiss: @MainActor (String) -> Void
+    let onSessionFocused: @MainActor (String) -> Void
     let onSizeChange: @MainActor (CGSize) -> Void
     let reveal: HUDRevealState
     /// Width of the collapsed notch band — where the reveal starts from.
@@ -235,7 +236,7 @@ struct NotchPanelView: View {
             HoverDiag.log("focus result id=\(session.id) -> \(result)")
             switch result {
             case .success:
-                break
+                onSessionFocused(session.id)
             case .failure(.permissionDenied):
                 show(.permissionDenied, for: session.id, duration: .seconds(10))
             case .failure(.notFound), .failure(.scriptFailed):
