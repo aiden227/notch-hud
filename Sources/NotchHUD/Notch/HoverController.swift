@@ -22,6 +22,11 @@ final class HoverController: NSObject {
     private var lastGlobalHitTestTime: TimeInterval = 0
     private var isPinned = false
 
+    // Grace period after the pointer leaves before collapsing. Short enough that the
+    // panel gets out of the way immediately, long enough to survive the pointer
+    // clipping a corner while travelling between the peek and the expanded panel.
+    private static let exitGraceMilliseconds = 90
+
     init(delegate: HoverControllerDelegate) {
         self.delegate = delegate
         super.init()
@@ -137,7 +142,7 @@ final class HoverController: NSObject {
             exitTask?.cancel()
             exitTask = Task { @MainActor [weak self] in
                 do {
-                    try await Task.sleep(for: .milliseconds(300))
+                    try await Task.sleep(for: .milliseconds(Self.exitGraceMilliseconds))
                 } catch {
                     return
                 }
@@ -228,7 +233,12 @@ enum HoverDiag {
         .appendingPathComponent(".notch-hud/hover.log")
     static func log(_ msg: String) {
         guard enabled else { return }
-        let line = "\(Date()) \(msg)\n"
+        // Millisecond resolution: hover enter/exit grace periods are sub-second.
+        // Built per call rather than shared — this path only runs under NOTCHHUD_DEBUG=1,
+        // and a static ISO8601DateFormatter is not Sendable under strict concurrency.
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let line = "\(formatter.string(from: Date())) \(msg)\n"
         NSLog("[HoverDiag] \(msg)")
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

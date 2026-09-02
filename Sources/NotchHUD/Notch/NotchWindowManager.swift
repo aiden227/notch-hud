@@ -13,6 +13,10 @@ final class NotchWindowManager {
     private typealias NotchedHUD = DynamicNotch<EmptyView, NotchPeekView, NotchPeekTrailingView>
     private typealias FloatingPeek = DynamicNotch<NotchFloatingPeekView, EmptyView, EmptyView>
 
+    // Opening keeps the style default (snappy 0.4) so expanding still feels deliberate.
+    // Collapsing is deliberately faster: once the pointer is gone the panel is in the way.
+    private static let collapseAnimation: Animation = .snappy(duration: 0.18)
+
     private let environment: AppEnvironment
     private let store: SessionStore
     private let pendingStore: PendingStore
@@ -156,6 +160,7 @@ final class NotchWindowManager {
             configurePassThroughWindow(notchedHUD.windowController?.window)
             transitionTask = Task { [weak self, weak notchedHUD] in
                 guard let self, let notchedHUD else { return }
+                notchedHUD.transitionConfiguration.conversionAnimation = nil
                 await notchedHUD.expand(on: screen)
                 guard self.transitionGeneration == generation, self.isExpanded else { return }
                 self.configurePassThroughWindow(notchedHUD.windowController?.window)
@@ -197,6 +202,7 @@ final class NotchWindowManager {
             configurePassThroughWindow(notchedHUD.windowController?.window)
             transitionTask = Task { [weak self, weak notchedHUD] in
                 guard let self, let notchedHUD else { return }
+                notchedHUD.transitionConfiguration.conversionAnimation = Self.collapseAnimation
                 await notchedHUD.compact(on: screen)
                 guard self.transitionGeneration == generation, !self.isExpanded else { return }
                 self.configurePassThroughWindow(notchedHUD.windowController?.window)
