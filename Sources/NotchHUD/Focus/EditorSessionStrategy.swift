@@ -16,8 +16,13 @@ import AppKit
 /// hosts every session in one process and nothing in the accessibility tree
 /// distinguishes the tabs.
 struct EditorSessionStrategy: FocusStrategy {
-    /// Authority of the URI — the Claude Code extension's `publisher.name`.
-    private static let extensionIdentifier = "Anthropic.claude-code"
+    /// Authority of the URI — the Claude Code extension id.
+    ///
+    /// Lower-cased deliberately. The editor asks the user once to trust an
+    /// extension with URIs and records the answer canonicalised, e.g.
+    /// `extensionUrlHandler.confirmedExtensions = ["anthropic.claude-code"]`.
+    /// Matching that form exactly keeps the grant applying to every session.
+    private static let extensionIdentifier = "anthropic.claude-code"
 
     /// The spool id is the agent session id with this prefix; the URI wants it bare.
     private static let sessionIDPrefix = "claude-"
