@@ -44,8 +44,8 @@ final class SessionStore {
             if lhsRank != rhsRank {
                 return lhsRank < rhsRank
             }
-            let lhsCanFocus = lhs.terminal?.tty != nil
-            let rhsCanFocus = rhs.terminal?.tty != nil
+            let lhsCanFocus = lhs.isFocusable
+            let rhsCanFocus = rhs.isFocusable
             if lhsCanFocus != rhsCanFocus {
                 return lhsCanFocus
             }

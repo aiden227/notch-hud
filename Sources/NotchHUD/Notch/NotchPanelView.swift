@@ -169,11 +169,22 @@ struct NotchPanelView: View {
     }
 
     private func focus(_ session: Session) {
-        guard session.terminal?.tty != nil else { return }
+        HoverDiag.log(
+            "focus tapped id=\(session.id) focusable=\(session.isFocusable) "
+                + "tty=\(session.terminal?.tty ?? "nil") "
+                + "app=\(session.terminal?.appBundleId ?? "nil") "
+                + "entrypoint=\(session.terminal?.claudeEntrypoint ?? "nil")"
+        )
+        guard session.isFocusable else {
+            HoverDiag.log("focus refused: session is not focusable")
+            return
+        }
         feedback[session.id] = nil
 
         Task {
-            switch await focusDispatcher.focus(session) {
+            let result = await focusDispatcher.focus(session)
+            HoverDiag.log("focus result id=\(session.id) -> \(result)")
+            switch result {
             case .success:
                 break
             case .failure(.permissionDenied):

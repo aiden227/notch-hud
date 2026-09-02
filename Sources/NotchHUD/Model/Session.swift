@@ -47,6 +47,14 @@ struct Session: Identifiable, Sendable {
         self.init(envelope: envelope, updatedAt: updatedAt)
     }
 
+    /// Whether clicking this row can take the user anywhere: a terminal to
+    /// raise, or a host application to jump into. Single source of truth — the
+    /// row's enabled state, the click handler and the sort order must agree, and
+    /// previously each carried its own copy of this test.
+    var isFocusable: Bool {
+        terminal?.tty != nil || terminal?.appBundleId != nil
+    }
+
     var displayStatus: DisplayStatus {
         status.displayStatus
     }

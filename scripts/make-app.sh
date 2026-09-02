@@ -24,6 +24,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>NSAppleEventsUsageDescription</key>
   <string>NotchHUD raises the terminal window of the agent session you click.</string>
 </dict>
+</plist>
 PLIST
 # Stable ad-hoc signature keyed to the bundle identifier (keeps TCC grants sticky).
 codesign --force --sign - --identifier com.actionable.notchhud "$APP"
