@@ -26,16 +26,23 @@ enum NotchGeometry {
     }
 
     /// Widened trigger zone covering the visible peek beside the cutout.
+    ///
+    /// `topExtra` pushes the top edge ABOVE the screen, which is not cosmetic:
+    /// `CGRect.contains` is half-open on the max edges, and the pointer pinned to
+    /// the very top of the display reports exactly `frameMaxY`. Without the
+    /// overshoot the topmost row of the notch — where the pointer naturally lands
+    /// when you shove it upward — tests as outside the rect and never triggers.
     static func hitRect(
         from notchRect: CGRect,
         sideMargin: CGFloat,
-        bottomExtra: CGFloat
+        bottomExtra: CGFloat,
+        topExtra: CGFloat = 4
     ) -> CGRect {
         CGRect(
             x: notchRect.minX - sideMargin,
             y: notchRect.minY - bottomExtra,
             width: notchRect.width + (sideMargin * 2),
-            height: notchRect.height + bottomExtra
+            height: notchRect.height + bottomExtra + topExtra
         )
     }
 

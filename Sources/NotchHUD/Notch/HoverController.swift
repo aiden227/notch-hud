@@ -45,10 +45,14 @@ final class HoverController: NSObject {
         // Widen the trigger zone so hovering the VISIBLE peek beside the cutout also expands.
         let sideMargin: CGFloat = 150
         let bottomExtra: CGFloat = 16
+        // Overshoot the screen top so the pointer parked at exactly frameMaxY
+        // still counts as inside (CGRect.contains excludes the max edge).
+        let topExtra: CGFloat = 4
         hitRect = NotchGeometry.hitRect(
             from: notchRect,
             sideMargin: sideMargin,
-            bottomExtra: bottomExtra
+            bottomExtra: bottomExtra,
+            topExtra: topExtra
         )
         isPinned = true
 
