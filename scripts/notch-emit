@@ -141,6 +141,40 @@ find_tty() {
 
 terminal_tty=$(find_tty)
 
+# Find the GUI application hosting this session, for sessions with no tty
+# (Claude Code running inside an editor rather than a terminal). Walk the same
+# ppid chain and take the OUTERMOST .app in an ancestor's executable path --
+# an Electron editor runs its extensions in a nested helper .app, and it is the
+# outer bundle that owns the window we would raise.
+find_app_bundle() {
+    pid=$$
+    i=0
+    while [ "$pid" -gt 1 ] && [ "$i" -lt 25 ]; do
+        comm=$(ps -o comm= -p "$pid" 2>/dev/null)
+        case "$comm" in
+            *.app/*)
+                printf '%s\n' "$comm" | sed 's|\(\.app\)/.*|\1|'
+                return 0
+                ;;
+        esac
+        pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+        [ -z "$pid" ] && break
+        i=$((i+1))
+    done
+    return 0
+}
+
+app_bundle_path=$(find_app_bundle)
+app_bundle_id=
+app_name=
+if [ -n "$app_bundle_path" ] && [ -f "$app_bundle_path/Contents/Info.plist" ]; then
+    app_bundle_id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" \
+        "$app_bundle_path/Contents/Info.plist" 2>/dev/null)
+    app_name=$(/usr/libexec/PlistBuddy -c "Print :CFBundleName" \
+        "$app_bundle_path/Contents/Info.plist" 2>/dev/null)
+    [ -n "$app_name" ] || app_name=$(basename "$app_bundle_path" .app)
+fi
+
 updated=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
 tmp_file=$spool_dir/$id.json.tmp.$$
 old_payload={}
@@ -170,6 +204,8 @@ if jq -n \
     --arg wezterm_pane "${WEZTERM_PANE:-}" \
     --arg kitty_window_id "${KITTY_WINDOW_ID:-}" \
     --arg window_id "${WINDOWID:-}" \
+    --arg app_bundle_id "$app_bundle_id" \
+    --arg app_name "$app_name" \
     --argjson pid "$pid_json" \
     --argjson seq "$seq" \
     --argjson detail_set "$detail_set" \
@@ -194,7 +230,9 @@ if jq -n \
             itermSessionId: (if $iterm_session_id == "" then null else $iterm_session_id end),
             weztermPane: (if $wezterm_pane == "" then null else $wezterm_pane end),
             kittyWindowId: (if $kitty_window_id == "" then null else $kitty_window_id end),
-            windowId: (if $window_id == "" then null else $window_id end)
+            windowId: (if $window_id == "" then null else $window_id end),
+            appBundleId: (if $app_bundle_id == "" then null else $app_bundle_id end),
+            appName: (if $app_name == "" then null else $app_name end)
         } | with_entries(select(.value != null)))),
         source: "notch-emit"
     }

@@ -8,7 +8,9 @@ final class FocusDispatcher {
         TerminalAppStrategy(),
         ITerm2Strategy(),
         WezTermStrategy(),
-        KittyStrategy()
+        KittyStrategy(),
+        // Last: only handles what the tty-based strategies decline.
+        ApplicationStrategy()
     ]) {
         self.strategies = strategies
     }

@@ -15,7 +15,22 @@ struct SessionRowView: View {
     @State private var isHovering = false
 
     private var canFocus: Bool {
-        session.terminal?.tty != nil
+        session.terminal?.tty != nil || session.terminal?.appBundleId != nil
+    }
+
+    /// What clicking will actually do, so the tooltip does not promise a
+    /// terminal tab when all we can raise is the host application.
+    private var focusHint: String {
+        if session.terminal?.tty != nil {
+            return "Raise this session's terminal"
+        }
+        if let app = session.terminal?.appName {
+            return "Raise \(app)"
+        }
+        if session.terminal?.appBundleId != nil {
+            return "Raise the host application"
+        }
+        return "Background session"
     }
 
     var body: some View {
@@ -27,7 +42,7 @@ struct SessionRowView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canFocus)
-            .help(canFocus ? "Raise this session's terminal" : "Background session")
+            .help(focusHint)
 
             if feedback == .permissionDenied {
                 Button(action: onGrantAccess) {
