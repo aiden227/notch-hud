@@ -81,17 +81,25 @@ struct NotchPanelView: View {
         .padding(.top, 6)
         .padding(.bottom, 14)
         .frame(
-            minWidth: 680,
-            maxWidth: 680,
+            minWidth: NotchPanelMetrics.width,
+            maxWidth: NotchPanelMetrics.width,
             maxHeight: maximumPanelHeight,
             alignment: .top
         )
         .fixedSize(horizontal: false, vertical: true)
-        .background(Color.notchBackground.opacity(0.97))
+        // Pure opaque black to match the notch band above, which DynamicNotchKit
+        // fills with plain `.black`. Any tint or translucency here shows up as a
+        // step across the seam.
+        .background(Color.black)
         .clipShape(panelShape)
         .overlay {
+            // Nudged up and re-clipped so the hairline runs down the sides and
+            // around the bottom only -- across the top it would draw a line
+            // exactly where the panel meets the notch band.
             panelShape
                 .stroke(.white.opacity(0.08), lineWidth: 0.5)
+                .offset(y: -1)
+                .clipShape(panelShape)
         }
         .background {
             GeometryReader { proxy in

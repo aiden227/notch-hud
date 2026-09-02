@@ -10,7 +10,7 @@ final class NotchWindowManager {
         case manual
     }
 
-    private typealias NotchedHUD = DynamicNotch<EmptyView, NotchPeekView, NotchPeekTrailingView>
+    private typealias NotchedHUD = DynamicNotch<NotchExpandedSpacer, NotchPeekView, NotchPeekTrailingView>
     private typealias FloatingPeek = DynamicNotch<NotchFloatingPeekView, EmptyView, EmptyView>
 
     // Opening keeps the style default (snappy 0.4) so expanding still feels deliberate.
@@ -233,8 +233,14 @@ final class NotchWindowManager {
         let pendingStore = pendingStore
         let notch = NotchedHUD(
             hoverBehavior: [],
-            style: .notch,
-            expanded: { EmptyView() },
+            style: .notch(
+                topCornerRadius: NotchPanelMetrics.expandedTopCornerRadius,
+                bottomCornerRadius: NotchPanelMetrics.expandedBottomCornerRadius
+            ),
+            // Transparent spacer, not empty: it gives the expanded notch band the
+            // panel's width so the two windows fuse into one surface. Zero height
+            // keeps the band exactly the height of the physical notch.
+            expanded: { NotchExpandedSpacer() },
             compactLeading: { NotchPeekView(store: store, pendingStore: pendingStore) },
             compactTrailing: { NotchPeekTrailingView(store: store) }
         )
@@ -356,13 +362,18 @@ final class NotchWindowManager {
             return
         }
 
-        let notchBandHeight = max(
-            screen.safeAreaInsets.top,
-            screen.frame.maxY - screen.visibleFrame.maxY
-        )
+        // Must match the band DynamicNotchKit actually draws, which is
+        // `NSScreen.notchSize.height` -- i.e. safeAreaInsets.top on a notched
+        // display. Using max(safeTop, menubarHeight) here left the panel 2pt low
+        // on this hardware (safeTop 38, menubar 40), opening a gap that showed
+        // the desktop between the band and the panel.
+        let notchBandHeight = screen.safeAreaInsets.top > 0
+            ? screen.safeAreaInsets.top
+            : screen.frame.maxY - screen.visibleFrame.maxY
         let frame = NSRect(
             x: screen.frame.midX - (panelSize.width / 2),
-            y: screen.frame.maxY - notchBandHeight - panelSize.height,
+            y: screen.frame.maxY - notchBandHeight - panelSize.height
+                + NotchPanelMetrics.seamOverlap,
             width: panelSize.width,
             height: panelSize.height
         )
