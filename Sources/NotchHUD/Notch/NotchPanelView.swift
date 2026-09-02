@@ -128,13 +128,15 @@ struct NotchPanelView: View {
         // step across the seam.
         .background(NotchDesign.surface)
         .clipShape(panelShape)
-        .mask {
-            // Width-only reveal, matched to the band's animation. The inner frame
-            // is what animates; the outer keeps the layout size fixed at full
-            // width so nothing below it shifts.
+        .mask(alignment: .top) {
+            // The panel retracts INTO the notch: width narrows to the band while
+            // height collapses upward toward it, anchored at the top edge where
+            // the two surfaces meet. Masking rather than scaling the content
+            // keeps the text from distorting as it goes.
             //
-            // Reduced motion replaces the travel with a plain cross-fade: the
-            // information still arrives, it just does not sweep across the screen.
+            // Width alone was not enough — it left a full-height column the width
+            // of the band, which then had to be blinked away by the window
+            // closing. Anything that must disappear all at once is a seam.
             Color.black
                 .frame(
                     width: reduceMotion
@@ -142,6 +144,10 @@ struct NotchPanelView: View {
                         : (reveal.isRevealed ? NotchPanelMetrics.width : compactWidth)
                 )
                 .frame(width: NotchPanelMetrics.width)
+                .scaleEffect(
+                    y: reduceMotion ? 1 : (reveal.isRevealed ? 1 : 0),
+                    anchor: .top
+                )
                 .animation(
                     reveal.isRevealed
                         ? NotchPanelMetrics.openAnimation

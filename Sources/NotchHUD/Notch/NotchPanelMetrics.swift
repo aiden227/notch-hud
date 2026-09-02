@@ -34,7 +34,12 @@ enum NotchPanelMetrics {
     /// finish. Without it the window is ordered out on the same frame the
     /// animation starts, and the close plays on the band only while the panel
     /// simply blinks out: the two halves visibly disagree.
-    static let closeSettle: TimeInterval = 0.14
+    ///
+    /// Generous on purpose. The mask has already retracted to nothing well
+    /// before this fires, so extra time costs nothing visually — its only job is
+    /// to guarantee the window is never torn down while anything is still on
+    /// screen, which is what produced the "shrink, then vanish all at once" pop.
+    static let closeSettle: TimeInterval = 0.20
 
     /// The panel is pulled up by a hair so it overlaps the band instead of merely
     /// abutting it. Both surfaces are opaque black, so the overlap is invisible,
