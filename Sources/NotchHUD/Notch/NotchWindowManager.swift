@@ -456,7 +456,10 @@ final class NotchWindowManager {
         positionInteractivePanel()
         hideTask?.cancel()
         hideTask = nil
-        panel.makeKeyAndOrderFront(nil)
+        // Show without taking key status: an auto-expand (agent finished, approval
+        // pending) must never pull keystrokes away from the app being typed in.
+        // The panel becomes key only when the user actually clicks it.
+        panel.orderFrontRegardless()
         // Next runloop turn: the mask must render at compactWidth once before the
         // change to full width can animate rather than snap.
         Task { @MainActor [weak self] in
