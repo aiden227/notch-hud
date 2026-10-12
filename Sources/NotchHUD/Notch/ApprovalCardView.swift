@@ -17,10 +17,10 @@ struct ApprovalCardView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white.opacity(0.045))
+        .background(Color.primary.opacity(0.045))
         .clipShape(cardShape)
         .overlay {
-            cardShape.stroke(.white.opacity(0.08), lineWidth: 0.5)
+            cardShape.stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
         }
         .accessibilityElement(children: .contain)
     }
@@ -38,7 +38,7 @@ struct ApprovalCardView: View {
             if let headerSummary {
                 Text(headerSummary)
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.88))
+                    .foregroundStyle(NotchDesign.text(0.88))
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
@@ -47,7 +47,7 @@ struct ApprovalCardView: View {
 
             Text(approval.projectName)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.42))
+                .foregroundStyle(NotchDesign.text(0.42))
                 .lineLimit(1)
         }
     }
@@ -90,7 +90,7 @@ struct ApprovalCardView: View {
             }
             .frame(maxHeight: 180)
         }
-        .background(Color.black.opacity(0.22))
+        .background(NotchDesign.well)
         .clipShape(.rect(cornerRadius: 9))
     }
 
@@ -105,7 +105,7 @@ struct ApprovalCardView: View {
             }
             .frame(maxHeight: 155)
         }
-        .background(Color.black.opacity(0.22))
+        .background(NotchDesign.well)
         .clipShape(.rect(cornerRadius: 9))
     }
 
@@ -117,34 +117,34 @@ struct ApprovalCardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxHeight: 155)
-        .background(Color.black.opacity(0.28))
+        .background(NotchDesign.wellDeep)
         .clipShape(.rect(cornerRadius: 9))
     }
 
     private func fileHeader(_ file: String?) -> some View {
         Text(file.flatMap { $0.isEmpty ? nil : $0 } ?? "Unknown file")
             .font(.system(size: 11, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white.opacity(0.67))
+            .foregroundStyle(NotchDesign.text(0.67))
             .lineLimit(1)
             .truncationMode(.middle)
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(0.035))
+            .background(Color.primary.opacity(0.035))
     }
 
     private var buttons: some View {
         HStack(spacing: 8) {
-            approvalButton("Deny", background: .white.opacity(0.10), foreground: .white) {
+            approvalButton("Deny", background: Color.primary.opacity(0.10), foreground: Color.primary) {
                 decide(.deny, scope: .once)
             }
-            approvalButton("Allow Once", background: .white.opacity(0.94), foreground: .black) {
+            approvalButton("Allow Once", background: Color.primary.opacity(0.94), foreground: NotchDesign.inverse) {
                 decide(.allow, scope: .once)
             }
             approvalButton(
                 "Bypass",
                 background: Color(red: 0.78, green: 0.10, blue: 0.20),
-                foreground: .white
+                foreground: Color.primary
             ) {
                 bypass()
             }
@@ -268,7 +268,7 @@ private struct ApprovalDiffLine: Identifiable {
 private extension View {
     func approvalCodeStyle() -> some View {
         font(.system(size: 11, design: .monospaced))
-            .foregroundStyle(.white.opacity(0.84))
+            .foregroundStyle(NotchDesign.text(0.84))
             .textSelection(.enabled)
     }
 }

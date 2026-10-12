@@ -175,7 +175,7 @@ struct SessionRowView: View {
             .lineLimit(1)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(.white.opacity(0.06))
+            .background(Color.primary.opacity(0.06))
             .clipShape(.capsule)
     }
 }

@@ -12,6 +12,9 @@ struct NotchPanelView: View {
     let reveal: HUDRevealState
     /// Width of the collapsed notch band — where the reveal starts from.
     let compactWidth: CGFloat
+    /// No physical notch: grow out of the menu bar, so wear its material and
+    /// follow the system appearance instead of the notch's black.
+    var isNotchless = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var feedback: [String: SessionRowFeedback] = [:]
@@ -26,6 +29,17 @@ struct NotchPanelView: View {
 
     private var maximumSessionListHeight: CGFloat {
         pendingStore.hasPending ? 205 : 468
+    }
+
+    /// Skip the unfurl. On the notch it grows out of the black band; under a grey
+    /// menu bar there is nothing to grow from, and any partial state (a thin
+    /// strip, or a half-faded panel) lets the window edge beneath the menu bar
+    /// show through as a line that blinks away. Notchless just appears.
+    private var fadesInPlace: Bool { reduceMotion || isNotchless }
+
+    /// Fill for the scroll-edge fades; must match whichever surface is showing.
+    private var surfaceColor: Color {
+        isNotchless ? MenuBarMaterial.color : NotchDesign.surface
     }
 
     private let panelShape = UnevenRoundedRectangle(
@@ -92,7 +106,7 @@ struct NotchPanelView: View {
                     .overlay(alignment: .top) {
                         if listIsScrollable {
                             LinearGradient(
-                                colors: [NotchDesign.surface, .clear],
+                                colors: [surfaceColor, .clear],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -103,7 +117,7 @@ struct NotchPanelView: View {
                     .overlay(alignment: .bottom) {
                         if listIsScrollable {
                             LinearGradient(
-                                colors: [.clear, NotchDesign.surface],
+                                colors: [.clear, surfaceColor],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -127,7 +141,7 @@ struct NotchPanelView: View {
         // Pure opaque black to match the notch band above, which DynamicNotchKit
         // fills with plain `.black`. Any tint or translucency here shows up as a
         // step across the seam.
-        .background(NotchDesign.surface)
+        .background { if isNotchless { MenuBarMaterial() } else { NotchDesign.surface } }
         .clipShape(panelShape)
         .mask(alignment: .top) {
             // The panel retracts INTO the notch: width narrows to the band while
@@ -140,13 +154,13 @@ struct NotchPanelView: View {
             // closing. Anything that must disappear all at once is a seam.
             Color.black
                 .frame(
-                    width: reduceMotion
+                    width: fadesInPlace
                         ? NotchPanelMetrics.width
                         : (reveal.isRevealed ? NotchPanelMetrics.width : compactWidth)
                 )
                 .frame(width: NotchPanelMetrics.width)
                 .scaleEffect(
-                    y: reduceMotion ? 1 : (reveal.isRevealed ? 1 : 0),
+                    y: fadesInPlace ? 1 : (reveal.isRevealed ? 1 : 0),
                     anchor: .top
                 )
                 .animation(
@@ -156,8 +170,8 @@ struct NotchPanelView: View {
                     value: reveal.isRevealed
                 )
         }
-        .opacity(reduceMotion ? (reveal.isRevealed ? 1 : 0) : 1)
-        .animation(reduceMotion ? NotchDesign.reducedMotion : nil, value: reveal.isRevealed)
+        .opacity(reduceMotion && !isNotchless ? (reveal.isRevealed ? 1 : 0) : 1)
+        .animation(fadesInPlace ? NotchDesign.reducedMotion : nil, value: reveal.isRevealed)
         .background {
             GeometryReader { proxy in
                 Color.clear

@@ -12,7 +12,6 @@ final class NotchWindowManager {
     }
 
     private typealias NotchedHUD = DynamicNotch<NotchExpandedSpacer, NotchPeekView, NotchPeekTrailingView>
-    private typealias FloatingPeek = DynamicNotch<NotchFloatingPeekView, EmptyView, EmptyView>
 
     // Band and panel must change state at the same rate or the HUD visibly comes
     // apart. Opening unfurls over 0.2s; closing is instant.
@@ -26,7 +25,7 @@ final class NotchWindowManager {
     private var hoverController: HoverController?
     private var selectedScreen: NSScreen?
     private var notchedHUD: NotchedHUD?
-    private var floatingPeek: FloatingPeek?
+    private var menuBarPeek: MenuBarPeek?
     private var interactivePanel: InteractiveNotchPanel?
     private let reveal = HUDRevealState()
     /// Highest `seq` per session the user has actually looked at. A session
@@ -110,7 +109,7 @@ final class NotchWindowManager {
             if screen.safeAreaInsets.top > 0 {
                 await self.installNotchedHUD(on: screen, generation: generation)
             } else {
-                NSLog("NotchHUD found no notched display; using a top-center floating pill.")
+                NSLog("NotchHUD found no notched display; using a menu-bar peek.")
                 await self.installFloatingHUD(on: screen, generation: generation)
             }
 
@@ -220,7 +219,7 @@ final class NotchWindowManager {
                 + "selectedScreen=\(selectedScreen != nil) notchedHUD=\(notchedHUD != nil)"
         )
         guard !isExpanded, let screen = selectedScreen else { return }
-        guard notchedHUD != nil || floatingPeek != nil else { return }
+        guard notchedHUD != nil || menuBarPeek != nil else { return }
         // The panel is installed after the notch during boot. Expanding in that
         // window would set isExpanded with nothing to show, and the installer's
         // own `!isExpanded` guard would then skip installing the panel and
@@ -253,14 +252,7 @@ final class NotchWindowManager {
             return
         }
 
-        guard let floatingPeek else { return }
-        configurePassThroughWindow(floatingPeek.windowController?.window)
-        transitionTask = Task { [weak self, weak floatingPeek] in
-            guard let self, let floatingPeek else { return }
-            await floatingPeek.hide()
-            guard self.transitionGeneration == generation, self.isExpanded else { return }
-            self.showInteractivePanel()
-        }
+        menuBarPeek?.hide()
     }
 
     func collapse(reason: ExpansionReason) {
@@ -310,13 +302,7 @@ final class NotchWindowManager {
             return
         }
 
-        guard let floatingPeek else { return }
-        transitionTask = Task { [weak self, weak floatingPeek] in
-            guard let self, let floatingPeek else { return }
-            await floatingPeek.expand(on: screen)
-            guard self.transitionGeneration == generation, !self.isExpanded else { return }
-            self.configurePassThroughWindow(floatingPeek.windowController?.window)
-        }
+        menuBarPeek?.show(on: screen)
     }
 
     func containsExpandedContent(at point: NSPoint) -> Bool {
@@ -353,18 +339,10 @@ final class NotchWindowManager {
     }
 
     private func installFloatingHUD(on screen: NSScreen, generation: Int) async {
-        let store = store
-        let pendingStore = pendingStore
-        let peek = FloatingPeek(
-            hoverBehavior: [],
-            style: .floating,
-            expanded: { NotchFloatingPeekView(store: store, pendingStore: pendingStore) }
-        )
-        floatingPeek = peek
-
-        await peek.expand(on: screen)
+        let peek = MenuBarPeek(store: store, pendingStore: pendingStore)
+        menuBarPeek = peek
         guard transitionGeneration == generation, !isExpanded else { return }
-        configurePassThroughWindow(peek.windowController?.window)
+        peek.show(on: screen)
     }
 
     private func installInteractivePanel() {
@@ -397,9 +375,12 @@ final class NotchWindowManager {
                 self?.updateRenderedPanelSize(size)
             },
             reveal: reveal,
-            compactWidth: compactWidth ?? 220
+            compactWidth: compactWidth ?? 220,
+            isNotchless: menuBarPeek != nil
         )
         let hostingView = FirstMouseHostingView(rootView: rootView)
+        // The notch is black whatever the system theme; the menu bar is not.
+        hostingView.appearance = menuBarPeek == nil ? NSAppearance(named: .darkAqua) : nil
         hostingView.autoresizingMask = [.width, .height]
 
         let panel = InteractiveNotchPanel(
@@ -416,6 +397,9 @@ final class NotchWindowManager {
         // alone draws a rim along the seam and gives away that this is two
         // windows rather than one surface.
         panel.hasShadow = false
+        // AppKit fades panels in and out on its own. Mid-fade the panel is
+        // see-through, and the window edge under the menu bar blinks through it.
+        panel.animationBehavior = .none
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = false
         panel.ignoresMouseEvents = false
@@ -523,6 +507,8 @@ final class NotchWindowManager {
     private func configurePassThroughWindow(_ window: NSWindow?) {
         guard let window else { return }
         window.ignoresMouseEvents = true
+        // Only the notch band uses this; it is black whatever the system theme.
+        window.appearance = NSAppearance(named: .darkAqua)
         window.level = .statusBar
         window.collectionBehavior.formUnion([
             .canJoinAllSpaces,
@@ -690,15 +676,14 @@ final class NotchWindowManager {
         if let notchedHUD {
             await notchedHUD.hide()
         }
-        if let floatingPeek {
-            await floatingPeek.hide()
-        }
+        menuBarPeek?.hide()
     }
 
     private func clearNotches() {
         removeInteractivePanel()
         notchedHUD = nil
-        floatingPeek = nil
+        menuBarPeek?.close()
+        menuBarPeek = nil
     }
 }
 

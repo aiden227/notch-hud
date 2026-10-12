@@ -55,7 +55,7 @@ struct NotchPeekView: View {
             return ("Needs you", DisplayStatus.needsMe.color)
         }
         if counts.working > 0 {
-            return ("Working…", .white)
+            return ("Working…", Color.primary)
         }
         if store.total > 0, counts.done == store.total {
             return ("Done", DisplayStatus.done.color)

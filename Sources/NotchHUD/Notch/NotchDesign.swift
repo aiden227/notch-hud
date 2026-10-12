@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Design tokens for the HUD surface, following Apple's fluid-interface guidance.
@@ -48,15 +49,25 @@ enum NotchDesign {
     // deliberate levels rather than ad-hoc opacities, so hierarchy stays legible
     // and every value is defensible.
 
-    static let textPrimary = Color.white
-    static let textSecondary = Color.white.opacity(0.72)
-    static let textTertiary = Color.white.opacity(0.58)
-    static let textQuaternary = Color.white.opacity(0.44)
+    static let textPrimary = Color.primary
+
+    /// Text at `opacity` on the black notch. The grey menu-bar surface has far
+    /// less contrast, so the same step reads too faint there; lift it.
+    static func text(_ opacity: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor.white.withAlphaComponent(opacity)
+                : NSColor.black.withAlphaComponent(min(1, 0.3 + 0.8 * opacity))
+        })
+    }
+    static let textSecondary = text(0.72)
+    static let textTertiary = text(0.58)
+    static let textQuaternary = text(0.44)
 
     /// Increased-contrast variants, used when the system asks for more contrast.
-    static let textSecondaryHC = Color.white.opacity(0.90)
-    static let textTertiaryHC = Color.white.opacity(0.80)
-    static let textQuaternaryHC = Color.white.opacity(0.70)
+    static let textSecondaryHC = text(0.90)
+    static let textTertiaryHC = text(0.80)
+    static let textQuaternaryHC = text(0.70)
 
     // MARK: - Surfaces
 
@@ -67,9 +78,31 @@ enum NotchDesign {
     /// growing out of it. Translucency would separate them into two things.
     static let surface = Color.black
 
-    static let rowFill = Color.white.opacity(0.05)
-    static let rowFillHover = Color.white.opacity(0.10)
-    static let rowFillPressed = Color.white.opacity(0.16)
+    /// Text on a primary-filled button: black in dark mode, white in light.
+    static let inverse = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? .black : .white
+    })
+    /// Inset wells (code, paths). Darken on dark, barely tint on light.
+    static let well = adaptive(dark: 0.22, light: 0.06)
+    static let wellDeep = adaptive(dark: 0.28, light: 0.08)
+
+    private static func adaptive(dark: CGFloat, light: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            NSColor.black.withAlphaComponent(
+                appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+            )
+        })
+    }
+
+    /// Resting row fill. Only on the black notch surface; on the menu-bar
+    /// surface rows sit flat, with a fill only on hover.
+    static let rowFill = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor.white.withAlphaComponent(0.05)
+            : .clear
+    })
+    static let rowFillHover = Color.primary.opacity(0.10)
+    static let rowFillPressed = Color.primary.opacity(0.16)
 }
 
 /// Apple's first rule of response: feedback lands on press, not on release.
@@ -84,4 +117,18 @@ struct NotchRowButtonStyle: ButtonStyle {
             .brightness(configuration.isPressed && isEnabled ? 0.06 : 0)
             .animation(NotchDesign.pressSpring, value: configuration.isPressed)
     }
+}
+
+/// The menu bar's own color, for growing out of it on a display with no notch.
+/// Solid, not a blur: the menu bar here is opaque (#DADADA measured in light
+/// mode), and a behind-window blur picks up whatever window sits under the
+/// panel instead -- white over a browser page.
+struct MenuBarMaterial: View {
+    var body: some View { Self.color }
+
+    static let color = Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 0.16, alpha: 1)
+                : NSColor(white: 218.0 / 255.0, alpha: 1)
+    })
 }
