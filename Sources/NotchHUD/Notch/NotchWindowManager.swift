@@ -310,8 +310,15 @@ final class NotchWindowManager {
         return panel.frame.contains(point)
     }
 
+    /// An external display wins over the built-in notch: when the MacBook is
+    /// plugged into a monitor, the HUD follows to that monitor as the menu-bar
+    /// pill. The primary (menu-bar) display is preferred if it is external.
+    /// With no external attached, fall back to the notched built-in screen.
     private func preferredScreen() -> NSScreen? {
-        NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? NSScreen.screens.first
+        let screens = NSScreen.screens
+        if let primary = screens.first, !primary.isBuiltIn { return primary }
+        if let external = screens.first(where: { !$0.isBuiltIn }) { return external }
+        return screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? screens.first
     }
 
     private func installNotchedHUD(on screen: NSScreen, generation: Int) async {
@@ -723,5 +730,14 @@ private final class InteractiveNotchPanel: NSPanel {
 
     override func cancelOperation(_ sender: Any?) {
         onEscape?()
+    }
+}
+
+private extension NSScreen {
+    var isBuiltIn: Bool {
+        guard let number = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+            return false
+        }
+        return CGDisplayIsBuiltin(CGDirectDisplayID(number.uint32Value)) != 0
     }
 }
