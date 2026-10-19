@@ -73,6 +73,12 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(screenParametersDidChange(_:)),
+            name: NSWorkspace.screensDidWakeNotification,
+            object: nil
+        )
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -81,11 +87,22 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         pendingWatcher?.stop()
         spoolWatcher?.stop()
         NotificationCenter.default.removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
     }
 
+    private var repinTask: Task<Void, Never>?
+
+    /// Display sleep/wake (and mirroring) fires a burst of screen changes, and
+    /// mid-burst the built-in notched screen can briefly look like the only
+    /// one. Wait for the layout to settle, then repin once.
     @objc
     private func screenParametersDidChange(_ notification: Notification) {
-        windowManager?.repinToBuiltInScreen()
+        repinTask?.cancel()
+        repinTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(800))
+            guard !Task.isCancelled else { return }
+            self?.windowManager?.repinToBuiltInScreen()
+        }
     }
 
     private func installStatusItem() {

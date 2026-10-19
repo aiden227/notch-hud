@@ -341,7 +341,13 @@ final class NotchWindowManager {
         notchedHUD = notch
 
         await notch.compact(on: screen)
-        guard transitionGeneration == generation, !isExpanded else { return }
+        guard transitionGeneration == generation else {
+            // A newer repin started while this one was animating in.
+            notch.windowController?.close()
+            notch.windowController = nil
+            return
+        }
+        guard !isExpanded else { return }
         configurePassThroughWindow(notch.windowController?.window)
     }
 
@@ -688,6 +694,12 @@ final class NotchWindowManager {
 
     private func clearNotches() {
         removeInteractivePanel()
+        // Close the window outright. Dropping the reference alone can orphan a
+        // notch whose compact animation finished after hide() ran (a display
+        // wake fires several screen changes in a row), leaving a black notch
+        // that nothing owns.
+        notchedHUD?.windowController?.close()
+        notchedHUD?.windowController = nil
         notchedHUD = nil
         menuBarPeek?.close()
         menuBarPeek = nil
