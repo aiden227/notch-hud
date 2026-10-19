@@ -107,6 +107,10 @@ final class NotchWindowManager {
 
             self.clearNotches()
             if screen.safeAreaInsets.top > 0 {
+                NSLog(
+                    "NotchHUD pinning the notched HUD to %@ (%d screen(s)).",
+                    screen.localizedName, NSScreen.screens.count
+                )
                 await self.installNotchedHUD(on: screen, generation: generation)
             } else {
                 NSLog("NotchHUD found no notched display; using a menu-bar peek.")
@@ -711,9 +715,14 @@ final class NotchWindowManager {
         for window in NSApp.windows {
             let isPeek = window.identifier == MenuBarPeek.windowIdentifier
             let isPanel = window is InteractiveNotchPanel
-            guard isPeek || isPanel else { continue }
+            // DynamicNotchKit's panel class is internal to the package, so match by name.
+            let isNotch = String(describing: type(of: window)) == "DynamicNotchPanel"
+            guard isPeek || isPanel || isNotch else { continue }
             guard !keep.contains(where: { $0 === window }) else { continue }
-            NSLog("NotchHUD closing an orphaned HUD window (%@).", isPeek ? "peek" : "panel")
+            NSLog(
+                "NotchHUD closing an orphaned HUD window (%@).",
+                isPeek ? "peek" : (isPanel ? "panel" : "notch")
+            )
             window.orderOut(nil)
             window.close()
         }
