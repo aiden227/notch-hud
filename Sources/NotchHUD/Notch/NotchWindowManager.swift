@@ -125,6 +125,14 @@ final class NotchWindowManager {
             // Catch up on anything that already needed attention while the HUD
             // was still being built.
             self.sessionsDidChange()
+
+            // A close sent while the display is asleep or mid-reconfigure can be
+            // dropped by the window server, leaving an empty peek on screen as a
+            // black bar. Sweep now, and again once the wake has fully settled.
+            self.sweepOrphanedWindows()
+            try? await Task.sleep(for: .seconds(3))
+            guard self.transitionGeneration == generation else { return }
+            self.sweepOrphanedWindows()
         }
     }
 
@@ -690,6 +698,25 @@ final class NotchWindowManager {
             await notchedHUD.hide()
         }
         menuBarPeek?.hide()
+    }
+
+    /// Closes any HUD panel this app still has on screen that isn't the
+    /// current peek, notch or interactive panel.
+    private func sweepOrphanedWindows() {
+        let keep: [NSWindow?] = [
+            menuBarPeek?.panel,
+            interactivePanel,
+            notchedHUD?.windowController?.window,
+        ]
+        for window in NSApp.windows {
+            let isPeek = window.identifier == MenuBarPeek.windowIdentifier
+            let isPanel = window is InteractiveNotchPanel
+            guard isPeek || isPanel else { continue }
+            guard !keep.contains(where: { $0 === window }) else { continue }
+            NSLog("NotchHUD closing an orphaned HUD window (%@).", isPeek ? "peek" : "panel")
+            window.orderOut(nil)
+            window.close()
+        }
     }
 
     private func clearNotches() {

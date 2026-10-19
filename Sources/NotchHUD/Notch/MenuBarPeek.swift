@@ -8,7 +8,9 @@ import SwiftUI
 final class MenuBarPeek {
     static let width: CGFloat = 300
 
-    private let panel: NSPanel
+    static let windowIdentifier = NSUserInterfaceItemIdentifier("notchhud.menubar-peek")
+
+    let panel: NSPanel
 
     init(store: SessionStore, pendingStore: PendingStore) {
         panel = NSPanel(
@@ -17,6 +19,8 @@ final class MenuBarPeek {
             backing: .buffered,
             defer: false
         )
+        panel.identifier = Self.windowIdentifier
+        panel.isReleasedWhenClosed = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
