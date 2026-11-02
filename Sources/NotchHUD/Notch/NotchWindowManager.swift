@@ -327,10 +327,10 @@ final class NotchWindowManager {
     /// pill. The primary (menu-bar) display is preferred if it is external.
     /// With no external attached, fall back to the notched built-in screen.
     private func preferredScreen() -> NSScreen? {
-        let screens = NSScreen.screens
-        if let primary = screens.first, !primary.isBuiltIn { return primary }
-        if let external = screens.first(where: { !$0.isBuiltIn }) { return external }
-        return screens.first(where: { $0.safeAreaInsets.top > 0 }) ?? screens.first
+        // Always the main display (the one with the menu bar, set in System
+        // Settings > Displays). Pill vs notch is decided later by whether that
+        // screen has a notch. When mirrored, screens.first is the mirror target.
+        NSScreen.screens.first ?? NSScreen.main
     }
 
     private func installNotchedHUD(on screen: NSScreen, generation: Int) async {
